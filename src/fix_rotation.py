@@ -50,14 +50,15 @@ def apply_rotation(round_id: int, rotation: list[dict]):
 
 
 def update_base_config(base_round_number: int, rotation: list[dict]):
-    """rotation_base_config 기준 회차 업데이트"""
+    """rotation_base_config 기준 회차/사용자 업데이트"""
     with get_connection() as conn, get_cursor(conn) as cursor:
         for r in rotation:
             cursor.execute("""
                 UPDATE rotation_base_config
-                SET base_round_number = %s
+                SET base_round_number = %s,
+                    user_id = %s
                 WHERE rotation_no = %s
-            """, (base_round_number, r["rotation_no"]))
+            """, (base_round_number, r["user_id"], r["rotation_no"]))
 
 
 # ─────────────────────────────────────────────

@@ -16,3 +16,9 @@ output/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+
+# local helper / research artifacts
+*.sh
+*.json
+*.md
+*.sql
