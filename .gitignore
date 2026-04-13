@@ -22,3 +22,17 @@ output/
 *.json
 *.md
 *.sql
+*.docx
+!README.md
+!crawl.sh
+!crawl-local.bat
+
+# keep research directory structure only
+research/**
+!research/**/
+!research/**/.gitkeep
+
+# keep research directory structure only
+research/**
+!research/**/
+!research/**/.gitkeep

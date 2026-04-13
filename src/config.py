@@ -10,7 +10,7 @@ from pathlib import Path
 # .env 파일 자동 로드 (어디서 실행하든 동작)
 # ============================================
 def _load_env() -> None:
-    """crawling/.env 파일을 자동으로 읽어 환경변수에 적용"""
+    """gameCrawling/.env 파일을 자동으로 읽어 환경변수에 적용"""
     env_path = Path(__file__).parent.parent / ".env"
     if not env_path.exists():
         return
