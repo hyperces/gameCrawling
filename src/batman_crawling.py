@@ -1,4 +1,4 @@
-"""베트맨 토토 경기 데이터 수집, 결과 판정 및 DB 저장"""
+"""베트맨 토토 회차/경기 일정 데이터 수집 및 DB 저장"""
 
 from __future__ import annotations
 
@@ -68,17 +68,12 @@ def post_with_retry(url: str, max_retries: int = 3, **kwargs) -> requests.Respon
             print(f"  [연결 오류] {type(e).__name__}: 재시도 예정")
     raise last_error
 
-from config import SCHEDULE_URL, GAME_INFO_URL, GAME_RESULT_URL, DEFAULT_GM_ID
+from config import SCHEDULE_URL, GAME_INFO_URL, DEFAULT_GM_ID
 from db_manager import (
     upsert_round,
     upsert_games,
     assign_rotation,
     get_round_by_gm_ts,
-    update_round_status,
-    update_game_result,
-    get_closed_rounds_without_results,
-    mark_round_result_saved,
-    evaluate_picks_for_round,
 )
 
 
@@ -261,17 +256,6 @@ def crawl_and_save(ym: str | None = None) -> None:
             upsert_games(round_id, games_data)
             print(f"    -> {len(games_data)}개 경기 저장 완료")
 
-            # 마감된 회차면 경기 결과도 함께 저장
-            if status == "closed":
-                result_count = 0
-                for idx, game in enumerate(games_list, start=1):
-                    result = parse_game_result(game)
-                    if result:
-                        update_game_result(round_id, idx, result)
-                        result_count += 1
-                if result_count > 0:
-                    print(f"    -> {result_count}개 경기 결과 저장")
-
         except Exception as e:
             print(f"    -> 경기 정보 조회 실패: {e}")
             continue
@@ -286,88 +270,11 @@ def crawl_and_save(ym: str | None = None) -> None:
     print(f"[{datetime.now()}] === 크롤링 완료 ===")
 
 
-# ============================================
-# 결과 판정: 마감 회차 결과 수집 + 정답 판정
-# ============================================
-
-def process_results() -> None:
-    """마감된 회차의 결과를 수집하고 유저 픽 정답 여부를 판정"""
-    print(f"\n[{datetime.now()}] === 결과 판정 시작 ===")
-
-    pending_rounds = get_closed_rounds_without_results()
-
-    if not pending_rounds:
-        print("  판정 대기 중인 회차가 없습니다.")
-        return
-
-    for round_info in pending_rounds:
-        round_id = round_info["id"]
-        gm_ts = round_info["gm_ts"]
-        round_number = round_info["round_number"]
-
-        print(f"  회차 {round_number} (gm_ts={gm_ts}) 결과 처리 중...")
-
-        # 경기 결과 재조회 (마감 후 결과가 나왔을 수 있으므로)
-        try:
-            game_info = fetch_game_info(gm_ts)
-            games_list = game_info.get("schedulesList", [])
-
-            all_results_available = True
-            result_count = 0
-
-            for idx, game in enumerate(games_list, start=1):
-                result = parse_game_result(game)
-                if result:
-                    update_game_result(round_id, idx, result)
-                    result_count += 1
-                else:
-                    all_results_available = False
-
-            print(f"    -> {result_count}/{len(games_list)}개 경기 결과 확인")
-
-            if not all_results_available:
-                print(f"    -> 아직 모든 결과가 나오지 않음, 다음 실행에서 재시도")
-                continue
-
-        except Exception as e:
-            print(f"    -> 결과 조회 실패: {e}")
-            continue
-
-        # 유저 픽 정답 판정
-        try:
-            user_stats = evaluate_picks_for_round(round_id)
-
-            for uid, stats in user_stats.items():
-                print(
-                    f"    -> user_id={uid}: "
-                    f"{stats['correct']}/{stats['total']} 맞음 "
-                    f"({stats['wrong']}개 틀림)"
-                )
-
-            # 결과 저장 완료 표시
-            mark_round_result_saved(round_id)
-            print(f"    -> 결과 판정 완료!")
-
-        except Exception as e:
-            print(f"    -> 정답 판정 실패: {e}")
-
-    print(f"[{datetime.now()}] === 결과 판정 완료 ===")
-
-
-# ============================================
-# 메인 실행
-# ============================================
-
 def main() -> None:
     ym = None
 
     if len(sys.argv) > 1:
-        if sys.argv[1] == "--results-only":
-            # 결과 판정만 실행
-            process_results()
-            return
-        else:
-            ym = sys.argv[1]
+        ym = sys.argv[1]
 
     if ym:
         # 특정 월 지정된 경우 해당 월만 크롤링
@@ -376,9 +283,6 @@ def main() -> None:
         # 기본: 전달 + 이번 달 순서로 크롤링 (누락 방지)
         crawl_and_save(get_prev_ym())
         crawl_and_save(get_current_ym())
-
-    # 결과 판정 실행 (마감된 회차가 있으면)
-    process_results()
 
 
 if __name__ == "__main__":

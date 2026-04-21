@@ -89,12 +89,61 @@ def get_round_by_gm_ts(gm_ts: int) -> dict | None:
         return cursor.fetchone()
 
 
-def get_closed_rounds_without_results() -> list[dict]:
-    """마감되었지만 결과가 아직 저장되지 않은 회차 목록"""
+def get_rounds_without_results() -> list[dict]:
+    """결과 저장이 아직 완료되지 않은 회차 목록"""
     with get_connection() as conn, get_cursor(conn) as cursor:
         cursor.execute(
-            "SELECT * FROM rounds WHERE status = 'closed' AND result_saved = 0"
+            "SELECT * FROM rounds WHERE result_saved = 0 ORDER BY gm_ts DESC"
         )
+        return cursor.fetchall()
+
+
+def get_rounds_for_stats_aggregation(
+    year: str | None = None,
+    round_id: int | None = None,
+    gm_ts: int | None = None,
+) -> list[dict]:
+    """적중 통계 집계 대상 회차 목록 조회"""
+    conditions = [
+        "EXISTS (SELECT 1 FROM games g WHERE g.round_id = r.id AND g.result IS NOT NULL)"
+    ]
+    params: list[object] = []
+
+    if year is not None:
+        conditions.append("LEFT(r.ym, 4) = %s")
+        params.append(year)
+
+    if round_id is not None:
+        conditions.append("r.id = %s")
+        params.append(round_id)
+
+    if gm_ts is not None:
+        conditions.append("r.gm_ts = %s")
+        params.append(gm_ts)
+
+    sql = """
+        SELECT
+            r.id,
+            r.gm_ts,
+            r.round_number,
+            r.ym,
+            r.status,
+            r.result_saved,
+            COUNT(DISTINCT g.id) AS resolved_games,
+            COUNT(DISTINCT p.id) AS pick_count
+        FROM rounds r
+        LEFT JOIN games g
+            ON g.round_id = r.id
+           AND g.result IS NOT NULL
+        LEFT JOIN picks p
+            ON p.round_id = r.id
+        WHERE {where_clause}
+        GROUP BY r.id, r.gm_ts, r.round_number, r.ym, r.status, r.result_saved
+        ORDER BY r.gm_ts DESC
+    """.format(where_clause=" AND ".join(conditions))
+
+    with get_connection() as conn, get_cursor(conn) as cursor:
+        cursor.execute(sql, tuple(params))
         return cursor.fetchall()
 
 
@@ -333,6 +382,8 @@ def evaluate_picks_for_round(round_id: int) -> dict:
             user_stats[uid]["total"] += 1
             user_stats[uid]["correct"] += is_correct
             user_stats[uid]["wrong"] += (1 - is_correct)
+
+        cursor.execute("DELETE FROM round_user_results WHERE round_id = %s", (round_id,))
 
         # round_user_results 요약 저장
         for uid, stats in user_stats.items():
