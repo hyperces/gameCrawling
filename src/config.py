@@ -31,6 +31,7 @@ _load_env()
 SCHEDULE_URL = "https://www.betman.co.kr/buyPsblGame/schedule.do"
 GAME_INFO_URL = "https://www.betman.co.kr/buyPsblGame/gameInfoInq.do"
 GAME_RESULT_URL = "https://www.betman.co.kr/buyPsblGame/gameInfoInq.do"
+TOTO_GAME_DATA_URL = "https://www.betman.co.kr/buyPsblGame/totoGameData.do"
 DEFAULT_GM_ID = "G011"
 
 # ============================================

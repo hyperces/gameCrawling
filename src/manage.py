@@ -25,6 +25,8 @@ def print_help() -> None:
                 "  python src/manage.py crawl [YYYYMM]",
                 "  python src/manage.py results",
                 "  python src/manage.py debug-api [YYYYMM]",
+                "  python src/manage.py toto-vote [gmTs]",
+                "  python src/manage.py save-toto-vote [gmTs]",
                 "  python src/manage.py research-import [args...]",
                 "  python src/manage.py aggregate-stats [options]",
                 "  python src/manage.py fix-rotation",
@@ -33,6 +35,8 @@ def print_help() -> None:
                 "  python src/manage.py crawl",
                 "  python src/manage.py crawl 202604",
                 "  python src/manage.py results",
+                "  python src/manage.py toto-vote",
+                "  python src/manage.py save-toto-vote",
                 "  python src/manage.py aggregate-stats --year 2026",
                 "  python src/manage.py research-import --dry-run",
             ]
@@ -67,6 +71,12 @@ def main(argv: list[str] | None = None) -> int:
 
     if command == "debug-api":
         return run_script("debug_api.py", extra)
+
+    if command == "toto-vote":
+        return run_script("fetch_toto_vote_status.py", extra)
+
+    if command == "save-toto-vote":
+        return run_script("save_toto_vote_status_to_db.py", extra)
 
     if command == "research-import":
         return run_script("research_importer.py", extra)
