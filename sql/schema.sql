@@ -18,7 +18,7 @@ CREATE TABLE IF NOT EXISTS rounds (
     gm_id       VARCHAR(10)  NOT NULL DEFAULT 'G011',
     round_number VARCHAR(20) NOT NULL COMMENT 'round display number (gmOsidTs)',
     ym  VARCHAR(6)   NOT NULL COMMENT 'YYYYMM',
-    status      ENUM('open','closed') NOT NULL DEFAULT 'open' COMMENT 'open or closed',
+    status      ENUM('upcoming','open','closed') NOT NULL DEFAULT 'open' COMMENT 'upcoming, open or closed',
     result_saved TINYINT(1)  NOT NULL DEFAULT 0 COMMENT 'result save completed flag',
     sale_start  DATETIME     NULL COMMENT 'sale start datetime',
     sale_end    DATETIME     NULL COMMENT 'sale end datetime',
