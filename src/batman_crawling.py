@@ -6,6 +6,7 @@ import random
 import ssl
 import sys
 import time
+from calendar import monthrange
 from datetime import datetime
 
 import requests
@@ -70,15 +71,39 @@ def post_with_retry(url: str, max_retries: int = 3, **kwargs) -> requests.Respon
     raise last_error
 
 
-def get_current_ym() -> str:
-    return datetime.now().strftime("%Y%m")
+def get_current_ym(now: datetime | None = None) -> str:
+    now = now or datetime.now()
+    return now.strftime("%Y%m")
 
 
-def get_prev_ym() -> str:
-    now = datetime.now()
+def get_prev_ym(now: datetime | None = None) -> str:
+    now = now or datetime.now()
     if now.month == 1:
         return f"{now.year - 1}12"
     return f"{now.year}{now.month - 1:02d}"
+
+
+def get_next_ym(now: datetime | None = None) -> str:
+    now = now or datetime.now()
+    if now.month == 12:
+        return f"{now.year + 1}01"
+    return f"{now.year}{now.month + 1:02d}"
+
+
+def is_last_week_of_month(now: datetime | None = None) -> bool:
+    now = now or datetime.now()
+    last_day = monthrange(now.year, now.month)[1]
+    last_date = now.replace(day=last_day)
+    last_week_start_day = last_day - last_date.weekday()
+    return now.day >= last_week_start_day
+
+
+def get_default_crawl_ym_list(now: datetime | None = None) -> list[str]:
+    now = now or datetime.now()
+    ym_list = [get_current_ym(now)]
+    if is_last_week_of_month(now):
+        ym_list.append(get_next_ym(now))
+    return ym_list
 
 
 def build_headers(referer: str) -> dict[str, str]:
@@ -261,8 +286,8 @@ def main() -> None:
     if ym:
         crawl_and_save(ym)
     else:
-        crawl_and_save(get_prev_ym())
-        crawl_and_save(get_current_ym())
+        for crawl_ym in get_default_crawl_ym_list():
+            crawl_and_save(crawl_ym)
 
 
 if __name__ == "__main__":
