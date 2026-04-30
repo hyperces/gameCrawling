@@ -4,21 +4,38 @@ import argparse
 import json
 from typing import Any
 
-from batman_crawling import build_headers, determine_round_status, fetch_schedule, post_with_retry
+from batman_crawling import (
+    build_headers,
+    determine_round_status,
+    fetch_schedule,
+    get_current_ym,
+    get_next_ym,
+    get_prev_ym,
+    post_with_retry,
+)
 from config import DEFAULT_GM_ID, TOTO_GAME_DATA_URL
 
 
 def resolve_target_gm_ts(requested_gm_ts: str | None = None) -> str:
-    schedule = fetch_schedule()
-    items = schedule.get("schedules", {}).get("data", [])
+    ym_list = [get_prev_ym(), get_current_ym(), get_next_ym()]
+    items: list[dict[str, Any]] = []
+
+    for ym in ym_list:
+        schedule = fetch_schedule(ym)
+        schedule_items = schedule.get("schedules", {}).get("data", [])
+        items.extend(schedule_items)
+
     if not items:
-        raise RuntimeError("schedule.do 응답에 회차 데이터가 없습니다.")
+        raise RuntimeError(f"schedule.do 응답에 회차 데이터가 없습니다. checked_ym={','.join(ym_list)}")
 
     open_items = [item for item in items if determine_round_status(item, "") == "open"]
     if not open_items:
-        raise RuntimeError("진행중인 회차가 없어 totoGameData.do 호출을 건너뜁니다.")
+        raise RuntimeError(
+            f"진행중인 회차가 없어 totoGameData.do 호출을 건너뜁니다. checked_ym={','.join(ym_list)}"
+        )
 
     if requested_gm_ts is None:
+        open_items.sort(key=lambda item: item.get("saleEndDate") or 0)
         return str(open_items[0]["gmTs"])
 
     requested_gm_ts = str(requested_gm_ts)
@@ -26,7 +43,7 @@ def resolve_target_gm_ts(requested_gm_ts: str | None = None) -> str:
         if str(item.get("gmTs")) == requested_gm_ts:
             return requested_gm_ts
 
-    raise RuntimeError(f"gmTs={requested_gm_ts} 는 진행중인 회차가 아닙니다.")
+    raise RuntimeError(f"gmTs={requested_gm_ts} 는 진행중인 회차가 아닙니다. checked_ym={','.join(ym_list)}")
 
 
 def fetch_toto_vote_status(gm_ts: str | int, gm_id: str = DEFAULT_GM_ID) -> dict[str, Any]:

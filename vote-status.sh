@@ -5,6 +5,7 @@ ROOT_DIR="$(cd "$(dirname "$0")" && pwd)"
 LOG_DIR="$ROOT_DIR/logs"
 LOCK_DIR="$ROOT_DIR/.locks"
 LOG_FILE="$LOG_DIR/vote_status_$(date +%Y%m%d).log"
+DEBUG_LOG="${VOTE_STATUS_DEBUG_LOG:-}"
 LOCK_FILE="$LOCK_DIR/vote_status.lock"
 PYTHON_BIN="${PYTHON_BIN:-python3}"
 
@@ -20,6 +21,17 @@ if [ -x "$ROOT_DIR/.venv/bin/python" ]; then
 elif [ -x "$ROOT_DIR/venv/bin/python" ]; then
   PYTHON_BIN="$ROOT_DIR/venv/bin/python"
 fi
+
+write_log() {
+  local line="$1"
+
+  printf '%s\n' "$line" >> "$LOG_FILE"
+
+  if [ -n "$DEBUG_LOG" ]; then
+    mkdir -p "$(dirname "$DEBUG_LOG")"
+    printf '%s\n' "$line" >> "$DEBUG_LOG"
+  fi
+}
 
 run_vote_status() {
   local output
@@ -41,7 +53,7 @@ run_vote_status() {
     fi
   fi
 
-  printf '%s %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$summary" | tee -a "$LOG_FILE"
+  write_log "$(date '+%Y-%m-%d %H:%M:%S') $summary"
   return "$exit_code"
 }
 
@@ -50,7 +62,7 @@ if command -v flock >/dev/null 2>&1; then
   if flock -n 9; then
     run_vote_status "$@"
   else
-    printf '%s %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "[SKIP] vote status job is already running" | tee -a "$LOG_FILE"
+    write_log "$(date '+%Y-%m-%d %H:%M:%S') [SKIP] vote status job is already running"
   fi
 else
   run_vote_status "$@"

@@ -28,7 +28,31 @@ CREATE TABLE IF NOT EXISTS rounds (
 ) ENGINE=InnoDB COMMENT='round info';
 
 -- --------------------------------------------
--- 2. games (14 games per round)
+-- 2. win result codes (Betman raw result code master)
+-- --------------------------------------------
+CREATE TABLE IF NOT EXISTS win_result_codes (
+    code         SMALLINT     NOT NULL PRIMARY KEY COMMENT 'Betman raw result code',
+    value        VARCHAR(20)  NOT NULL COMMENT 'Korean label from API',
+    pick_result  ENUM('W','D','L') NULL COMMENT 'normalized result for picks, NULL for special/cancel',
+    sort_order   SMALLINT     NOT NULL DEFAULT 0 COMMENT 'display order',
+    created_at   DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at   DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB COMMENT='Betman win result code master';
+
+INSERT INTO win_result_codes (code, value, pick_result, sort_order) VALUES
+    (0,  '승',       'W', 1),
+    (1,  '무',       'D', 2),
+    (2,  '패',       'L', 3),
+    (3,  '적중특례', NULL, 4),
+    (99, '취소',     NULL, 5)
+ON DUPLICATE KEY UPDATE
+    value = VALUES(value),
+    pick_result = VALUES(pick_result),
+    sort_order = VALUES(sort_order),
+    updated_at = CURRENT_TIMESTAMP;
+
+-- --------------------------------------------
+-- 3. games (14 games per round)
 -- --------------------------------------------
 CREATE TABLE IF NOT EXISTS games (
     id          INT AUTO_INCREMENT PRIMARY KEY,
@@ -38,14 +62,20 @@ CREATE TABLE IF NOT EXISTS games (
     home_team   VARCHAR(100) NOT NULL COMMENT 'home team',
     away_team   VARCHAR(100) NOT NULL COMMENT 'away team',
     game_date   VARCHAR(50)  NULL COMMENT 'game datetime string from API',
+    home_score  SMALLINT     NULL COMMENT 'home score from result API',
+    away_score  SMALLINT     NULL COMMENT 'away score from result API',
+    win_result_code SMALLINT NULL COMMENT 'raw result code from Betman result API',
     result      ENUM('W','D','L') NULL COMMENT 'actual result (W/D/L, home-based)',
+    result_checked_at DATETIME NULL COMMENT 'latest result sync time',
     created_at  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
     UNIQUE KEY uk_round_game (round_id, game_no),
-    FOREIGN KEY (round_id) REFERENCES rounds(id) ON DELETE CASCADE
+    KEY idx_games_win_result_code (win_result_code),
+    FOREIGN KEY (round_id) REFERENCES rounds(id) ON DELETE CASCADE,
+    FOREIGN KEY (win_result_code) REFERENCES win_result_codes(code)
 ) ENGINE=InnoDB COMMENT='game info';
 
 -- --------------------------------------------
--- 3. users
+-- 4. users
 -- --------------------------------------------
 CREATE TABLE IF NOT EXISTS users (
     id           INT AUTO_INCREMENT PRIMARY KEY,
@@ -66,7 +96,7 @@ INSERT INTO users (username, display_name, password, sort_order) VALUES
 ON DUPLICATE KEY UPDATE display_name = VALUES(display_name), sort_order = VALUES(sort_order);
 
 -- --------------------------------------------
--- 4. rotation base config (DB managed)
+-- 5. rotation base config (DB managed)
 -- --------------------------------------------
 CREATE TABLE IF NOT EXISTS rotation_base_config (
     id                 INT AUTO_INCREMENT PRIMARY KEY,
@@ -87,7 +117,7 @@ INSERT INTO rotation_base_config (base_round_number, rotation_no, user_id) VALUE
 ON DUPLICATE KEY UPDATE user_id = VALUES(user_id);
 
 -- --------------------------------------------
--- 5. rotation assignments (per round)
+-- 6. rotation assignments (per round)
 -- --------------------------------------------
 CREATE TABLE IF NOT EXISTS rotation_assignments (
     id          INT AUTO_INCREMENT PRIMARY KEY,
@@ -119,7 +149,7 @@ INSERT INTO rotation_games (rotation_no, game_no) VALUES
 ON DUPLICATE KEY UPDATE game_no = VALUES(game_no);
 
 -- --------------------------------------------
--- 6. picks (user picks + correct flag)
+-- 7. picks (user picks + correct flag)
 -- --------------------------------------------
 CREATE TABLE IF NOT EXISTS picks (
     id          INT AUTO_INCREMENT PRIMARY KEY,
@@ -137,7 +167,7 @@ CREATE TABLE IF NOT EXISTS picks (
 ) ENGINE=InnoDB COMMENT='user picks';
 
 -- --------------------------------------------
--- 7. round user results (summary)
+-- 8. round user results (summary)
 -- --------------------------------------------
 CREATE TABLE IF NOT EXISTS round_user_results (
     id          INT AUTO_INCREMENT PRIMARY KEY,
