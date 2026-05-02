@@ -7,6 +7,12 @@ src/__pycache__/
 .env
 .env.local
 .env.server
+
+# local Docker overrides
+docker-compose.local.yml
+docker-compose.override.yml
+docker-compose.*.local.yml
+
 work_tree/
 
 *.pem
